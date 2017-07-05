@@ -1,2 +1,2 @@
 # user-stats
-A reddit user statistics bot. Currently running as /u/user-stats
+To run, copy sample_config.py to config.py and configure the info in it.
