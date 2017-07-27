@@ -5,17 +5,22 @@ def main():
     reddit = praw.Reddit(client_id=config.client_id, client_secret=config.client_secret, user_agent=config.user_agent, username=config.username, password=config.password) 
 
     print(f"Logged into reddit as /u/{config.username}")
-
-    for comment in praw.models.util.stream_generator(reddit.inbox.mentions):
-        if comment.new:
-            try:
-                username = extract_user(comment.body)
-            except Exception:
-                print(f"Failed on \"{comment.body}\"")
-            else:
-                reply_stats(comment, username, reddit)
-            finally:
-                comment.mark_read()
+    
+    while True:
+        try:
+            for comment in praw.models.util.stream_generator(reddit.inbox.mentions):
+                if comment.new:
+                    try:
+                        username = extract_user(comment.body)
+                    except Exception:
+                        print(f"Failed on \"{comment.body}\"")
+                    else:
+                        reply_stats(comment, username, reddit)
+                    finally:
+                        comment.mark_read()
+        except (praw.exceptions.PRAWException, prawcore.PrawcoreException) as e:
+            print(f"Error connecting to reddit: {str(e)}")
+            time.sleep(20)
 
 def extract_user(comment):
     username = re.match(r"(/?(u/){1})?\b[\w-]{3,20}\b", comment.lower().split(f"u/{config.username} ")[1])
