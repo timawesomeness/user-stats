@@ -4,6 +4,8 @@ from datetime import datetime
 def main():
     reddit = praw.Reddit(client_id=config.client_id, client_secret=config.client_secret, user_agent=config.user_agent, username=config.username, password=config.password) 
 
+    print(f"Logged into reddit as /u/{config.username}")
+
     for comment in praw.models.util.stream_generator(reddit.inbox.mentions):
         if comment.new:
             try:
@@ -16,7 +18,7 @@ def main():
                 comment.mark_read()
 
 def extract_user(comment):
-    username = re.match(r"(/?(u/){1})?\b[\w-]{3,20}\b", comment.lower().split("u/user-stats ")[1])
+    username = re.match(r"(/?(u/){1})?\b[\w-]{3,20}\b", comment.lower().split(f"u/{config.username} ")[1])
     if username:
         username = re.sub(r"/?(u/){1}", "", username.group(0))
     else:
