@@ -1,22 +1,19 @@
-import praw, config, re, time
+import praw, config, re, time, prawcore
 from datetime import datetime
 
 def main():
-    reddit = praw.Reddit(client_id=config.client_id, client_secret=config.client_secret, user_agent=config.user_agent, username=config.username, password=config.password)
+    reddit = praw.Reddit(client_id=config.client_id, client_secret=config.client_secret, user_agent=config.user_agent, username=config.username, password=config.password) 
 
-    subreddit = reddit.subreddit("user_stats") # For testing. Will be replaced with checking for mentions to significantly reduce load instead of following /r/all.
-
-    for comment in subreddit.stream.comments():
-        if comment.body.find("u/user-stats") != -1: # Temporary as above
+    for comment in praw.models.util.stream_generator(reddit.inbox.mentions):
+        if comment.new:
             try:
                 username = extract_user(comment.body)
             except Exception:
                 print(f"Failed on \"{comment.body}\"")
-                pass # TODO: save id
             else:
-                comment_id, success = reply_stats(comment, username)
-                if comment_id and success:
-                    pass # TODO: save id
+                reply_stats(comment, username, reddit)
+            finally:
+                comment.mark_read()
 
 def extract_user(comment):
     username = re.match(r"(/?(u/){1})?\b[\w-]{3,20}\b", comment.lower().split("u/user-stats ")[1])
@@ -24,26 +21,37 @@ def extract_user(comment):
         username = re.sub(r"/?(u/){1}", "", username.group(0))
     else:
         raise Exception
-    print(username)
     return username
 
-def reply_stats(comment, username):
+def reply_stats(comment, username, reddit):
     user = reddit.redditor(username)
-    posts = user.comments.new(limit=None)
-    comments = user.submissions.new(limit=None)
+    posts = user.submissions.new(limit=None)
+    comments = user.comments.new(limit=None)
     try:
-        stats = compile_stats(posts, comments)
+        stats = compile_stats(posts, comments, username)
     except (praw.exceptions.PRAWException, prawcore.PrawcoreException) as e:
-        print("Bot encountered an error, waiting 5 sec and retrying...\nError: " + str(e))
+        if str(e).find("404") != -1:
+            stats = f"Error: user \"{username}\" does not seem to exist."
+            print(stats)
+        else:
+            print("Bot encountered an error, waiting 5 sec and retrying...\n    - Error: " + str(e))
+            try:
+                time.sleep(5)
+                stats = compile_stats(posts, comments, username)
+            except (praw.exceptions.PRAWException, prawcore.PrawcoreException):
+                print(f"Error getting posts/comments for \"{username}\"")
+                return
+    try:
+        comment.reply(stats)
+    except (praw.exceptions.PRAWException, prawcore.PrawcoreException):
         try:
             time.sleep(5)
-            stats = compile_stats(posts, comments)
+            comment.reply(stats)
         except (praw.exceptions.PRAWException, prawcore.PrawcoreException):
-            print(f"Error getting posts/comments for \"{username}\"")
-            return None, False
-     
+            print(f"Couldn't reply to {comment.id} in /r/{comment.subreddit}. Banned?")
+            return
 
-def compile_stats(posts, comments):
+def compile_stats(posts, comments, username):
     # Post vars:
     oldest_post = None
     count_posts = 0
@@ -55,40 +63,45 @@ def compile_stats(posts, comments):
 
     for post in posts:
         if oldest_post:
-            if post.created < oldest_post:
-                oldest_post = post.created
+            if post.created_utc < oldest_post:
+                oldest_post = post.created_utc
         else:
-            oldest_post = post.created
+            oldest_post = post.created_utc
         count_posts += 1
-        score_posts += post.score
+        score_posts += post.score - 1
 
     for comment in comments:
         if oldest_comment:
-            if comment.created < oldest_comment:
-                oldest_comment = comment.created
+            if comment.created_utc < oldest_comment:
+                oldest_comment = comment.created_utc
         else:
-            oldest_comment = comment.created
+            oldest_comment = comment.created_utc
         count_comments += 1
-        score_posts += 1
+        score_comments += comment.score - 1
     
     if count_comments == 0 and count_posts == 0:
         return "Error. User appears to have 0 posts and 0 comments."
 
     current_time = datetime.now().timestamp()
+
+    if not oldest_post:
+        oldest_post = current_time
+    elif not oldest_comment:
+        oldest_comment = current_time
+
     stats_string = (
-        f"Stats for *{username}*:\n\n"                                                                                              # For readability's sake:
-        f"Over the last **{str(count_posts)}** posts (over {str(round((current_time - oldest_post) / 86400))} days):  \n"           # Post header
-        f"Total post score: {str(score_posts)}  \n"                                                                                 #  -Post score
-        f"Average post score: {str(round(score_posts / count_posts))}  \n"                                                          #  -Avg. post score
-        f"Average post upvotes/day: {str(round(score_posts / ((current_time - oldest_post) / 86400)))}  \n"                         #  -Post score/day
-        f"Average posts/day: {str(round(count_posts / ((current_time - oldest_post) / 86400), 3))}\n\n"                             #  -Posts/day
-        f"Over the last **{str(count_comments)}* comments (over {str(round((current_time - oldest_comment) / 86400))} days):  \n"   # Comment header
-        f"Total comment score: {str(score_comments)}  \n"                                                                           #  -Comment score
-        f"Average comment score: {str(round(score_comments / count_comments))}  \n"                                                 #  -Avg. comment score
-        f"Average comment upvotes/day: {str(round(score_comments / ((current_time - oldest_comment) / 86400)))}  \n"                #  -Comment score/day
-        f"Average comments/day: {str(round(count_comments / ((current_time - oldest_comment) / 86400), 3))}"                        #  -Comments/day
-    )
-    print(stats_string)
+        f"**Stats for {username}:**\n\n"                                                                                                                        # For readability:
+        f"**Over the last {str(count_posts)} posts (over {str(round((current_time - oldest_post) / 86400))} days):**  \n"                                       # Post header
+        f"Total post score: {str(score_posts)}  \n"                                                                                                             #  -Post score
+        f"Average post score: {str(round(score_posts / count_posts) if count_posts != 0 else 0)}  \n"                                                           #  -Avg. post score
+        f"Average post upvotes/day: {str(round(score_posts / ((current_time - oldest_post) / 86400)) if current_time != oldest_post else 0)}  \n"               #  -Post score/day
+        f"Average posts/day: {str(round(count_posts / ((current_time - oldest_post) / 86400), 1) if current_time != oldest_post else 0)}\n\n"                   #  -Posts/day
+        f"**Over the last {str(count_comments)} comments (over {str(round((current_time - oldest_comment) / 86400))} days):**  \n"                              # Comment header
+        f"Total comment score: {str(score_comments)}  \n"                                                                                                       #  -Comment score
+        f"Average comment score: {str(round(score_comments / count_comments) if count_comments != 0 else 0)}  \n"                                               #  -Avg. comment score
+        f"Average comment upvotes/day: {str(round(score_comments / ((current_time - oldest_comment) / 86400)) if current_time != oldest_comment else 0)}  \n"   #  -Comment score/day
+        f"Average comments/day: {str(round(count_comments / ((current_time - oldest_comment) / 86400), 1) if current_time != oldest_comment else 0)}"           #  -Comments/day
+    ) 
     return stats_string
 
 if __name__ == "__main__":
