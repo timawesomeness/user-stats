@@ -8,7 +8,7 @@ def main():
     
     while True:
         try:
-            for comment in praw.models.util.stream_generator(reddit.inbox.mentions):
+            for comment in reddit.inbox.stream():
                 if comment.new:
                     try:
                         username = extract_user(comment.body)
