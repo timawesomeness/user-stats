@@ -36,7 +36,7 @@ def reply_stats(comment, username, reddit):
     posts = user.submissions.new(limit=None)
     comments = user.comments.new(limit=None)
 
-    footer = "\n\n___\n\n^[FAQ](https://www.reddit.com/r/user_stats/wiki/faq) ^[Github](https://github.com/timawesomeness/user-stats)"
+    footer = "\n\n___\n\n^[FAQ](https://www.reddit.com/r/user_stats/wiki/faq) ^[Subreddit](https://reddit.com/r/user_stats)"
 
     try:
         stats = compile_stats(posts, comments, username)
