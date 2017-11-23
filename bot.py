@@ -108,7 +108,7 @@ def compile_stats(posts, comments, username):
     stats_string = (
         f"**Stats for {username}:**\n\n"                                                                                                                        # For readability:
         f"**Over the last {str(count_posts)} posts (over {str(round((current_time - oldest_post) / 86400))} days):**  \n"                                       # Post header
-        f"Total post upvotes: {str(total_score_posts - count_posts)}  \n"                                                                                       #  -Post score
+        f"Net post upvotes: {str(total_score_posts - count_posts)}  \n"                                                                                         #  -Post score
         f"Average post score: {str(round(total_score_posts / count_posts) if count_posts > 0 else 0)}  \n"                                                      #  -Avg. post score
         f"Median post score: {str(round(median(score_posts)) if count_posts > 0 else 0)}  \n"                                                                   #  -Med. post score
          "Average post upvotes/day: "                                                                                                                           #  -Post score/day
@@ -118,7 +118,7 @@ def compile_stats(posts, comments, username):
         f"Average words per post title: {str(round(words_posts / count_posts) if count_posts > 0 else 0)}\n\n"                                                  #  -Avg. title words
                                                                                                                                                                 #----------------------
         f"**Over the last {str(count_comments)} comments (over {str(round((current_time - oldest_comment) / 86400))} days):**  \n"                              # Comment header
-        f"Total comment upvotes: {str(total_score_comments - count_comments)}  \n"                                                                              #  -Comment score
+        f"Net comment upvotes: {str(total_score_comments - count_comments)}  \n"                                                                                #  -Comment score
         f"Average comment score: {str(round(total_score_comments / count_comments) if count_comments > 0 else 0)}  \n"                                          #  -Avg. comment score
         f"Median comment score: {str(round(median(score_comments)) if count_comments > 0 else 0)}  \n"                                                          #  -Med. comment score
          "Average comment upvotes/day: "                                                                                                                        #  -Comment score/day
