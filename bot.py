@@ -27,7 +27,7 @@ def main():
             time.sleep(20)
 
 def extract_user(comment):
-    username = re.match(r"(/?(u/){1})?\b[\w-]{3,20}\b", comment.lower().split(f"u/{config.username} ")[1])
+    username = re.match(r"(/?(u/){1})?[\w-]{3,20}", comment.lower().split(f"u/{config.username} ")[1])
     if username:
         username = re.sub(r"/?(u/){1}", "", username.group(0))
     else:
