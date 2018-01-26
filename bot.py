@@ -9,16 +9,19 @@ def main():
     
     while True:
         try:
-            for comment in reddit.inbox.stream():
-                if comment.new:
+            for message in reddit.inbox.stream():
+                if message.new:
                     try:
-                        username = extract_user(comment.body)
+                        if isinstance(message, praw.models.Message):
+                            username = extract_user_pm(message.body) 
+                        else:
+                            username = extract_user(message.body)
                     except Exception:
-                        print(f"Failed on \"{comment.body}\"")
+                        print(f"Failed on \"{message.body}\"")
                     else:
-                        reply_stats(comment, username, reddit)
+                        reply_stats(message, username, reddit)
                     finally:
-                        comment.mark_read()
+                        message.mark_read()
         except (praw.exceptions.PRAWException, prawcore.PrawcoreException) as e:
             print(f"Error connecting to reddit: {str(e)}")
             time.sleep(20)
@@ -30,6 +33,12 @@ def extract_user(comment):
     else:
         raise Exception
     return username
+
+def extract_user_pm(message): # Yes I know this method is stupid and ineffecient, but it should be rare so I don't care. 
+    if message.startswith(f"/u/{config.username} ") or message.startswith(f"u/{config.username} "):
+        return extract_user(message)
+    else:
+        return extract_user(f"/u/{config.username} " + message)
 
 def reply_stats(comment, username, reddit):
     user = reddit.redditor(username)
@@ -54,7 +63,8 @@ def reply_stats(comment, username, reddit):
                 return
     try:
         comment.reply(stats + footer)
-    except (praw.exceptions.PRAWException, prawcore.PrawcoreException):
+    except (praw.exceptions.PRAWException, prawcore.PrawcoreException) as e:
+        print("Bot encountered an error, waiting 5 sec and retrying...\n    - Error: " + str(e))
         try:
             time.sleep(5)
             comment.reply(stats + footer)
