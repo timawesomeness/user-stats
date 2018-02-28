@@ -49,18 +49,16 @@ def reply_stats(comment, username, reddit):
 
     try:
         stats = compile_stats(posts, comments, username)
+    except prawcore.exceptions.NotFound:
+        stats = f"Error: user \"{username}\" does not seem to exist."
     except (praw.exceptions.PRAWException, prawcore.PrawcoreException) as e:
-        if str(e).find("404") != -1:
-            stats = f"Error: user \"{username}\" does not seem to exist."
-            print(stats)
-        else:
-            print("Bot encountered an error, waiting 5 sec and retrying...\n    - Error: " + str(e))
-            try:
-                time.sleep(5)
-                stats = compile_stats(posts, comments, username)
-            except (praw.exceptions.PRAWException, prawcore.PrawcoreException):
-                print(f"Error getting posts/comments for \"{username}\"")
-                return
+        print("Bot encountered an error, waiting 5 sec and retrying...\n    - Error: " + str(e))
+        try:
+            time.sleep(5)
+            stats = compile_stats(posts, comments, username)
+        except (praw.exceptions.PRAWException, prawcore.PrawcoreException):
+            print(f"Error getting posts/comments for \"{username}\"")
+            return
     try:
         comment.reply(stats + footer)
     except (praw.exceptions.PRAWException, prawcore.PrawcoreException) as e:
