@@ -1,0 +1,14 @@
+[Unit]
+Description=/u/user-stats bot
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/python3.6 -u /home/tim/user-stats/bot.py
+Restart=always
+User=tim
+WorkingDirectory=/home/tim/user-stats
+
+[Install]
+WantedBy=multi-user.target
+
